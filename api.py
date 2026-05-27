@@ -41,3 +41,12 @@ class TaskAssistantFnc(llm.FunctionContext):
 
         logger.info(f"Created task: {task}")
         return f"Task created: {task}"
+    
+#read/ list/ fetch tasks
+    @llm.ai_callable(description="Get all tasks or agenda")
+    def list_tasks(self):
+        if not self.state.tasks:
+            return "You have no tasks."
+
+        agenda = "\n".join(str(t) for t in self.state.tasks)
+        return f"Your tasks are:\n{agenda}"
