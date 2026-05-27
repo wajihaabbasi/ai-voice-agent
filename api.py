@@ -54,7 +54,7 @@ class TaskAssistantFnc(llm.FunctionContext):
 #update a task
     @llm.ai_callable(description="Update a task by id with new title and/or time")
     def update_task(
-           self,
+        self,
         task_id: Annotated[int, llm.TypeInfo(description="Task ID")],
         new_title: Annotated[Optional[str], llm.TypeInfo(description="New title")] = None,
         new_time: Annotated[Optional[str], llm.TypeInfo(description="New time")] = None,
@@ -68,5 +68,19 @@ class TaskAssistantFnc(llm.FunctionContext):
 
                 logger.info(f"Updated task: {task}")
                 return f"Task updated: {task}"
+
+        return "Task not found."  #scenario handling when no task found
+    
+#delete a task    
+    @llm.ai_callable(description="Delete a task by id")
+    def delete_task(
+        self,
+        task_id: Annotated[int, llm.TypeInfo(description="Task ID")],
+    ):
+        for i, task in enumerate(self.state.tasks):
+            if task.id == task_id:
+                removed = self.state.tasks.pop(i)
+                logger.info(f"Deleted task: {removed}")
+                return f"Deleted task: {removed}"
 
         return "Task not found."  #scenario handling when no task found
