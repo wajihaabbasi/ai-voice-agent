@@ -26,3 +26,18 @@ class TaskAssistantFnc(llm.FunctionContext):
     def __init__(self) -> None:
         super().__init__()
         self.state = TaskState()    
+
+#tasks CRUD operations:
+# create a task
+    @llm.ai_callable(description="Create a new task with title and time")
+    def create_task(
+        self,
+        title: Annotated[str, llm.TypeInfo(description="Task description")],
+        time: Annotated[str, llm.TypeInfo(description="Task time (e.g. 10 AM)")],
+    ):
+        task = Task(self.state.next_id, title, time)
+        self.state.tasks.append(task)
+        self.state.next_id += 1
+
+        logger.info(f"Created task: {task}")
+        return f"Task created: {task}"
