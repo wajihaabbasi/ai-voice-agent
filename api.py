@@ -50,3 +50,23 @@ class TaskAssistantFnc(llm.FunctionContext):
 
         agenda = "\n".join(str(t) for t in self.state.tasks)
         return f"Your tasks are:\n{agenda}"
+    
+#update a task
+    @llm.ai_callable(description="Update a task by id with new title and/or time")
+    def update_task(
+           self,
+        task_id: Annotated[int, llm.TypeInfo(description="Task ID")],
+        new_title: Annotated[Optional[str], llm.TypeInfo(description="New title")] = None,
+        new_time: Annotated[Optional[str], llm.TypeInfo(description="New time")] = None,
+    ):
+        for task in self.state.tasks:
+            if task.id == task_id:
+                if new_title:
+                    task.title = new_title
+                if new_time:
+                    task.time = new_time
+
+                logger.info(f"Updated task: {task}")
+                return f"Task updated: {task}"
+
+        return "Task not found."  #scenario handling when no task found
