@@ -1,1 +1,14 @@
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
 .env
+.env.local
+
+# Node.js defaults
+node_modules/
+dist/
+.DS_Store
+EOF
