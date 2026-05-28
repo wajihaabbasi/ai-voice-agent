@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+*$py.class
+.ai/
+ai/
+ENV/
+.env
+.env.local
+backend/.env
+voice-task-frontend/.env
+
+# Node.js defaults
+node_modules/
+dist/
+.DS_Store
+EOF
