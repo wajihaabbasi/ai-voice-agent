@@ -1,28 +1,40 @@
-# app/agents/tools.py
 from typing import Optional
+from livekit.agents.llm import function_tool # Replaces ai_callable
 import logging
-from livekit.agents.llm import function_tool
 from app.controllers.task_controller import TaskController
 from app.database.connection import AsyncSessionLocal
 
 logger = logging.getLogger("task_agent")
+logger.setLevel(logging.INFO)
 
-class TaskAssistantTools:
+class TaskAssistantTools: # No longer needs to inherit from FunctionContext
+    def __init__(self) -> None:
+        pass
+        
     @function_tool
-    async def create_task(self, title: str, time_info: Optional[str] = None) -> str:
+    async def create_task(
+        self,
+        title: str,
+        time_info: Optional[str] = None
+    ) -> str:
         """
         Create a new task with a specified title and optional descriptive timing.
+
+        Args:
+            title: The core description or name of the task.
+            time_info: Optional time phrasing, e.g., '10 AM' or 'tomorrow morning'.
         """
-        full_title = f"{title} at {time_info}" if time_info else title  
+        # Build out a clean compound title if the user specified a time verbally
+        full_title = f"{title} ({time_info})" if time_info else title  
 
         async with AsyncSessionLocal() as db:
             try:
                 task = await TaskController.create_task(db, full_title)
-                await db.commit()  # FIXED: Critical to prevent automatic transactional rollback
-                return f"Task '{task.title}' successfully created."
+                logger.info(f"Created task: {task.title} with ID {task.id}")
+                return f"Task {task.title} successfully created"
             except Exception as e:
                 logger.error(f"Error creating task: {e}")
-                return f"Failed to save task: {str(e)}"
+                return f"Failed to save task due to a database exception: {str(e)}"
             
     @function_tool
     async def list_tasks(self) -> str:
@@ -34,41 +46,57 @@ class TaskAssistantTools:
             if not tasks:
                 return "Your agenda is completely clear. You have no tasks right now."
         
-            agenda = []  
-            for idx, task in enumerate(tasks, start=1):
-                agenda.append(f"Task {idx}: {task.title} [{task.status}]")
-            return "Here are your current tasks: " + ", ".join(agenda)   
+        # Formulate clean verbal responses avoiding confusing raw IDs
+        agenda = []  
+        for idx, task in enumerate(tasks, start=1):
+            agenda.append(f"Task {idx}: {task.title}")
+        
+        return "Here are your tasks: " + ", ".join(agenda)   
 
     @function_tool
-    async def update_task(self, search_term: str, new_title: Optional[str] = None, status: Optional[str] = None) -> str:
+    async def update_task(
+        self,
+        search_term: str,
+        new_title: Optional[str] = None,
+        status: Optional[str] = None
+    ) -> str:
         """
-        Update an existing task matching context lookups like 'the workout' or 'the first task'.
+        Update an existing task's title or status matching context lookups like 'the workout' or 'the first task'.
+
+        Args:
+            search_term: The verbal identifier or index sequence used to locate the task.
+            new_title: The updated title content.
+            status: The updated status parameters, like 'completed'.
         """
         async with AsyncSessionLocal() as db:
             task = await TaskController.find_task_by_context(db, search_term)
             if not task:
-                return f"I couldn't find any task matching '{search_term}'."
+                return f"I couldn't find any task matching '{search_term}' in your records."
         
-            # FIXED: Aligned keyword arguments with the controller signatures
-            await TaskController.update_task(db, task_id=task.id, new_title=new_title, new_status=status)
+            await TaskController.update_task(db, task_id=task.id, title=new_title, status=status)
             await db.commit()
-            return f"Successfully updated task matching '{search_term}'." 
+            return "Task updated." 
         
     @function_tool
-    async def delete_task(self, search_term: str) -> str:
+    async def delete_task(
+        self,
+        search_term: str
+    ) -> str:
         """
-        Permanently delete a task using conversational lookups like 'the first one' or a title keyword.
+        Delete a specific task permanently by referencing its title name or numerical sequence position.
+
+        Args:
+            search_term: The identifier name or index location spoken by the user.
         """
         async with AsyncSessionLocal() as db:
             task = await TaskController.find_task_by_context(db, search_term)
             if not task:
-                return f"I couldn't locate a task matching '{search_term}' to delete."
-                
-            success = await TaskController.delete_task(db, task_id=task.id)
-            if success:
-                await db.commit()
-                return f"Task '{task.title}' has been successfully deleted."
-            return f"Failed to delete the task matching '{search_term}'."'''
+                return f"I couldn't find a task matching '{search_term}' to remove."
+
+            await TaskController.delete_task(db, task_id=task.id)
+            await db.commit()
+            return f"Successfully deleted the task: '{task.title}'."           
+'''
 class Task:
     class Task:
         def __init__(self, task_id: int, title: str, time: str):

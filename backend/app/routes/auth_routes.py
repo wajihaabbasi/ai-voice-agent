@@ -1,30 +1,19 @@
 import uuid
 import os
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException
 from livekit import api
 from app.config import settings
 
 router = APIRouter(prefix="/api/auth", tags=["Auth Pipeline"])
 
 @router.post("/token")
-async def generate_webrtc_token(
-    room_name: str = Query(default="voice_crud_workspace", description="The livekit room to join")
-):
-
-    #DEbugging
-    print(f"--- DEBUGGING KEYS ---")
-    print(f"KEY: {settings.LIVEKIT_API_KEY}")
-    print(f"SECRET: {settings.LIVEKIT_API_SECRET}")
-    print(f"----------------------")
-
-    if not settings.LIVEKIT_API_KEY or not settings.LIVEKIT_API_SECRET:
-        raise HTTPException(status_code=500, detail="LiveKit server credentials are not set.")
+async def generate_webrtc_token():
     """Generates an encrypted JWT access token for WebRTC connection authentication."""
     if not settings.LIVEKIT_API_KEY or not settings.LIVEKIT_API_SECRET:
         raise HTTPException(status_code=500, detail="LiveKit server credentials are not set.")
 
     identity = f"voice_user_{uuid.uuid4().hex[:6]}"
-    room_name = room_name
+    room_name = "voice_crud_workspace"
 
     token = api.AccessToken(settings.LIVEKIT_API_KEY, settings.LIVEKIT_API_SECRET) \
         .with_identity(identity) \
@@ -41,7 +30,5 @@ async def generate_webrtc_token(
         "token": token.to_jwt(),
         "room": room_name,
         "identity": identity,
-        "server_url": os.getenv("LIVEKIT_URL") or settings.LIVEKIT_KEY
-        }
-
-
+        "serverUrl": os.getenv("LIVEKIT_URL"),
+    }

@@ -11,8 +11,8 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/voice_crud"
     
     # LiveKit Credentials (Required for WebRTC voice streaming rooms)
-    LIVEKIT_API_KEY: str = os.getenv("LIVEKIT_API_KEY", "")
-    LIVEKIT_API_SECRET: str = os.getenv("LIVEKIT_API_SECRET", "")
+    LIVEKIT_API_KEY: str = ""
+    LIVEKIT_API_SECRET: str = ""
     LIVEKIT_URL: str = ""
     
     # AI Engine Provider Configurations
@@ -22,8 +22,5 @@ class Settings(BaseSettings):
         env_file=os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env"),
         extra="ignore"
     )
-class Config:
-        env_file = ".env"
-        extra = "ignore"
-        
+
 settings = Settings()
