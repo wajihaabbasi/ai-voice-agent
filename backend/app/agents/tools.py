@@ -1,23 +1,29 @@
-import enum
-from typing import Annotated, Optional
-from livekit.agents import llm
+from typing import Optional
+from livekit.agents.llm import function_tool # Replaces ai_callable
 import logging
-from app.controlles.task_controller import TaskController
+from app.controllers.task_controller import TaskController
 from app.database.connection import AsyncSessionLocal
 
-logger= logging.getLogger("task_agent")
-logger.setLevel(logging.INFO) # used to print the output of the agent to the console
+logger = logging.getLogger("task_agent")
+logger.setLevel(logging.INFO)
 
-class TaskAssistnatTools(llm.FunctionContext):
+class TaskAssistantTools: # No longer needs to inherit from FunctionContext
     def __init__(self) -> None:
-        super().__init__()
+        pass
         
-    @llm.ai_callable(description="Create a new task with a specified title and optional descriptive timing.")
+    @function_tool
     async def create_task(
         self,
-        title: Annotated[str, llm.TypeInfo(description="The core description or name of the task")],
-        time_info: Annotated[Optional[str], llm.TypeInfo(description="Optional time phrasing, e.g., '10 AM' or 'tomorrow morning'")] = None
+        title: str,
+        time_info: Optional[str] = None
     ) -> str:
+        """
+        Create a new task with a specified title and optional descriptive timing.
+
+        Args:
+            title: The core description or name of the task.
+            time_info: Optional time phrasing, e.g., '10 AM' or 'tomorrow morning'.
+        """
         # Build out a clean compound title if the user specified a time verbally
         full_title = f"{title} ({time_info})" if time_info else title  
 
@@ -28,53 +34,69 @@ class TaskAssistnatTools(llm.FunctionContext):
                 return f"Task {task.title} successfully created"
             except Exception as e:
                 logger.error(f"Error creating task: {e}")
-                return  f"Failed to save task due to a database exception: {str(e)}"
+                return f"Failed to save task due to a database exception: {str(e)}"
             
-        @llm.ai_callable(description="List or read out all current active tasks on the user's agenda.")
-        async def list_tasks(self) -> str:
-            async with AsyncSessionLocal() as db:
-                tasks = await TaskController.get_all_tasks(db)
-                if not tasks:
-                    return "Your agenda is completely clear. You have no tasks right now."
-            
-            # Formulate clean verbal responses avoiding confusing raw IDs
-            agenda = []  #list to hold all the created/existing tasks
-            for idx, task in enumerate(tasks, start=1):
-                agenda.append(f"Task {idx}: {task.title}")
-            
-            return "Here are your tasks: " + ", ".join(agenda)   
+    @function_tool
+    async def list_tasks(self) -> str:
+        """
+        List or read out all current active tasks on the user's agenda.
+        """
+        async with AsyncSessionLocal() as db:
+            tasks = await TaskController.get_all_tasks(db)
+            if not tasks:
+                return "Your agenda is completely clear. You have no tasks right now."
+        
+        # Formulate clean verbal responses avoiding confusing raw IDs
+        agenda = []  
+        for idx, task in enumerate(tasks, start=1):
+            agenda.append(f"Task {idx}: {task.title}")
+        
+        return "Here are your tasks: " + ", ".join(agenda)   
 
-        @llm.ai_callable(description="Update an existing task's title or status matching context lookups like 'the workout' or 'the first task'.")
-        async def update_task(
-            self,
-            search_term: Annotated[str, llm.TypeInfo(description="The verbal identifier or index sequence used to locate the task")],
-            new_title: Annotated[Optional[str], llm.TypeInfo(description="The updated title content")] = None,
-            status: Annotated[Optional[str], llm.TypeInfo(description="The updated status parameters, like 'completed'")] = None
-            ) -> str:
-            async with AsyncSessionLocal() as db:
-            # Context-Aware lookup matching your fuzzy strategy
-                task = await TaskController.find_task_by_context(db, search_term)
-                if not task:
-                    return f"I couldn't find any task matching '{search_term}' in your records."
-            
-                await TaskController.update_task(db, task_id=task.id, title=new_title, status=status)
-                await db.commit()
-                return f"Task updated." 
-            
-        @llm.ai_callable(description="Delete a specific task permanently by referencing its title name or numerical sequence position.")
-        async def delete_task(
+    @function_tool
+    async def update_task(
         self,
-        search_term: Annotated[str, llm.TypeInfo(description="The identifier name or index location spoken by the user")]
+        search_term: str,
+        new_title: Optional[str] = None,
+        status: Optional[str] = None
     ) -> str:
-            async with AsyncSessionLocal() as db:
-                task = await TaskController.find_task_by_context(db, search_term)
-                if not task:
-                    return f"I couldn't find a task matching '{search_term}' to remove."
-                
-                await TaskController.delete_task(db, task_id=task.id)
-                await db.commit()
-                return f"Successfully deleted the task: '{task.title}'."   
+        """
+        Update an existing task's title or status matching context lookups like 'the workout' or 'the first task'.
 
+        Args:
+            search_term: The verbal identifier or index sequence used to locate the task.
+            new_title: The updated title content.
+            status: The updated status parameters, like 'completed'.
+        """
+        async with AsyncSessionLocal() as db:
+            task = await TaskController.find_task_by_context(db, search_term)
+            if not task:
+                return f"I couldn't find any task matching '{search_term}' in your records."
+        
+            await TaskController.update_task(db, task_id=task.id, title=new_title, status=status)
+            await db.commit()
+            return "Task updated." 
+        
+    @function_tool
+    async def delete_task(
+        self,
+        search_term: str
+    ) -> str:
+        """
+        Delete a specific task permanently by referencing its title name or numerical sequence position.
+
+        Args:
+            search_term: The identifier name or index location spoken by the user.
+        """
+        async with AsyncSessionLocal() as db:
+            task = await TaskController.find_task_by_context(db, search_term)
+            if not task:
+                return f"I couldn't find a task matching '{search_term}' to remove."
+
+            await TaskController.delete_task(db, task_id=task.id)
+            await db.commit()
+            return f"Successfully deleted the task: '{task.title}'."           
+'''
 class Task:
     class Task:
         def __init__(self, task_id: int, title: str, time: str):
@@ -153,3 +175,4 @@ class TaskAssistantFnc(llm.FunctionContext):
                 return f"Deleted task: {removed}"
 
         return "Task not found."  #scenario handling when no task found
+'''

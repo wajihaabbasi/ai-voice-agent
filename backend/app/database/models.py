@@ -4,7 +4,7 @@ from sqlalchemy import Column, String, DateTime, Text
 from sqlalchemy.dialects.postgresql import UUID
 from app.database.connection import Base
 
-class Task(Base):
+class TaskModel(Base):
     __tablename__ = "tasks"
 
     # Use UUIDs as the primary key for reliable async tracking across state switches

@@ -4,17 +4,22 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
+import threading
 
 from livekit.agents import Agent, AgentServer, AgentSession, AutoSubscribe, JobContext, WorkerOptions, cli, llm
 #from livekit.agents.pipeline import VoicePipelineAgent
 #from livekit.agents.voice_assistant import VoiceAssistant
 from livekit.plugins import openai, silero
-from backend.app.agents.tools import TaskAssistantFnc
+from app.agents.tools import TaskAssistantTools
 
 from app.config import settings
 from app.routes import auth_routes
 from app.error_handler import CoreExceptionMiddleware
-from app.agents.tools import TaskAssistantFnc
+
+import warnings
+# Suppress annoying Pydantic V2 namespace warnings caused by LiveKit
+warnings.filterwarnings("ignore", category=UserWarning, module="pydantic")
+
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
@@ -51,7 +56,7 @@ server = AgentServer() #liveKit AgentServer instance
 async def entrypoint(ctx: JobContext):
    logger.info(f"New RTC session started in room: {ctx.room.name}")
    await ctx.connect(auto_subscribe=AutoSubscribe.AUDIO_ONLY)
-   fnc_ctx = TaskAssistantFnc()
+   fnc_ctx = TaskAssistantTools()
    #assistant = VoiceAssistant(
    #assistant = VoicePipelineAgent(
    session = AgentSession(
@@ -77,14 +82,12 @@ async def entrypoint(ctx: JobContext):
     await asyncio.sleep(1)
    #await assistant.say("Hello, What can I do for you today?", allow_interruptions=True)
 
-async def run_combined_services():
-   config = uvicorn.Config(app, host="0.0.0.0", port=8000, log_level="info")
-   uvicorn_server = uvicorn.Server(config)
-
-   asyncio.create_task(uvicorn_server.serve())
-
-   logger.info("Starting LiveKit Agent Server...")
-   cli.run_app(server)  
+def start_fastapi():
+    """Runs the FastAPI server cleanly inside a dedicated thread."""
+    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="warning")  
 
 if __name__ == "__main__":    # Run the entrypoint with the specified worker options
-    asyncio.run(run_combined_services())
+    api_thread = threading.Thread(target=start_fastapi, daemon=True)
+    api_thread.start()
+    logger.info("Starting up LiveKit Agent Worker Loop...")
+    cli.run_app(server)
